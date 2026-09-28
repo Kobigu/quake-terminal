@@ -1,0 +1,16 @@
+#!/bin/bash
+# quake-terminal-preload — started at login via ~/.config/autostart to keep the
+# quake kitty instance pre-launched (hidden), so the first F12 is instant.
+
+QUAKE_DIR="$HOME/quake-terminal"
+KITTEN="$QUAKE_DIR/kitty/linux-package/bin/kitten"
+
+export KITTY_PATH_TO_KITTY_EXE="$QUAKE_DIR/kitty/linux-package/bin/kitty"
+unset KITTY_PID
+
+exec "$KITTEN" quick-access-terminal \
+    --config "$QUAKE_DIR/quick-access-terminal.conf" \
+    --override start_as_hidden=yes \
+    --debug-rendering \
+    --detach \
+    --detached-log /tmp/quake-terminal.log

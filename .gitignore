@@ -1,0 +1,10 @@
+# build output (rebuild with ./build.sh)
+kitty/linux-package/
+# sphinx venv used to build kitty's man/html docs (docs/requirements.txt)
+docs-venv/
+# downloaded slang shader compiler + libs (see README)
+tools-bin/
+# scratch
+__pycache__/
+*.log
+*.last

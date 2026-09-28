@@ -1,0 +1,11 @@
+# Shim: Debian dropped x11-xcb.pc and X11/Xlib-xcb.h (X11-xcb merged into libX11 in 1.8+)
+prefix=/usr
+libdir=${prefix}/lib/x86_64-linux-gnu
+shimincludedir=${pcfiledir}/../include-shims
+
+Name: X11-xcb
+Description: X C API, XCB compatibility (merged into libX11)
+Version: 1.8.13
+Requires: x11
+Cflags: -I${shimincludedir}
+Libs: -L${libdir} -lX11

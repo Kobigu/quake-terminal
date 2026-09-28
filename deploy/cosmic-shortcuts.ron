@@ -1,0 +1,10 @@
+# Quake terminal — COSMIC custom shortcut (fallback for when keyd is absent)
+#
+# cosmic-comp only reads this file at startup, so changes require a re-login.
+# Install: cp cosmic-shortcuts.ron ~/.config/cosmic/com.system76.CosmicSettings.Shortcuts/v1/custom
+#
+# This is the post-reboot path; at runtime F12 is handled by keyd (deploy/keyd.conf).
+
+{
+    (modifiers: [], key: "F12"): Spawn("/home/toby/.local/bin/quake-terminal"),
+}

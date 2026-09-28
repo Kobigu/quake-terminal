@@ -1,0 +1,10 @@
+#!/bin/bash
+# qa-kill <instance-group> — kill the kitty instance of a quake test group
+# (matches the real kitty process cmdline only, never shells)
+GROUP="$1"
+for p in $(pgrep -x kitty); do
+    if tr '\0' '\n' < /proc/$p/cmdline 2>/dev/null | grep -qx -- "--instance-group=$GROUP"; then
+        echo "killing kitty pid $p ($GROUP)"
+        kill "$p" 2>/dev/null
+    fi
+done

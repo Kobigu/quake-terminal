@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Quake Terminal Preloader
+Comment=Pre-launch the hidden F12 quake terminal so the first toggle is instant
+Exec=/home/toby/quake-terminal/quake-terminal-preload
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
