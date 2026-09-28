@@ -4,8 +4,8 @@ libdir=${prefix}/lib/x86_64-linux-gnu
 shimincludedir=${pcfiledir}/../include-shims
 
 Name: X11-xcb
-Description: X C API, XCB compatibility (merged into libX11)
+Description: X C API, XCB compatibility
 Version: 1.8.13
 Requires: x11
 Cflags: -I${shimincludedir}
-Libs: -L${libdir} -lX11
+Libs: -L${libdir} -l:libX11-xcb.so.1 -lX11

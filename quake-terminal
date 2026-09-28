@@ -1,55 +1,70 @@
 #!/bin/bash
 # quake-terminal — F12 handler for the custom-built kitty quake fork.
 #
-# Toggles the quick-access (quake style) terminal:
-#   * if the quake kitty instance is already running, this toggles its
-#     visibility (slide down from the top of the screen / slide up + hide)
-#   * if it is not running, it is spawned visible
+# Toggle behavior:
+#   * running instance?  -> toggle its visibility directly over the remote
+#     control socket (fast, no process spawn per press)
+#   * not running / wedged? -> kill any stale quake kitty processes
+#     (self-heal) and spawn a fresh, visible instance
 #
-# This script always pins OUR custom kitty build (~/quake-terminal/kitty),
-# never the system kitty, even when run from inside another kitty (whose
-# KITTY_PID env var would otherwise redirect to that other binary).
+# This always pins OUR custom kitty build, never the system kitty (even when
+# run from inside another kitty, whose KITTY_PID would redirect otherwise).
 #
-# When started from a context without a session environment (e.g. keyd, which
-# runs as root via runuser), the compositor socket is discovered from the
-# cosmic-session process environment.
-#
-# A short debounce guards against double activation (e.g. the key being bound
-# both in keyd and in the compositor's shortcut table after a reboot).
+# When started without a session environment (keyd runs as a systemd service),
+# the compositor socket is discovered from the cosmic-session process env.
 
-QUAKE_DIR="$HOME/quake-terminal"
-KITTEN="$QUAKE_DIR/kitty/linux-package/bin/kitten"
+Q="${HOME:-/home/toby}/quake-terminal"
+K="$Q/kitty/linux-package/bin/kitten"
 
-# discover the session environment if we were spawned without one
-if [ -z "$XDG_RUNTIME_DIR" ]; then
-    export XDG_RUNTIME_DIR="/run/user/$(id -u)"
-fi
+# --- session environment discovery (keyd / systemd context) ---
+[ -n "$XDG_RUNTIME_DIR" ] || export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 if [ -z "$WAYLAND_DISPLAY" ]; then
-    cs_pid=$(pgrep -x cosmic-session 2>/dev/null | head -1)
-    if [ -n "$cs_pid" ] && [ -r "/proc/$cs_pid/environ" ]; then
-        session_env=$(tr '\0' '\n' < "/proc/$cs_pid/environ" 2>/dev/null)
-        WAYLAND_DISPLAY=$(printf '%s\n' "$session_env" | grep -m1 '^WAYLAND_DISPLAY=' | cut -d= -f2-)
-        DBUS_SESSION_BUS_ADDRESS=$(printf '%s\n' "$session_env" | grep -m1 '^DBUS_SESSION_BUS_ADDRESS=' | cut -d= -f2-)
-        [ -n "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY
-        [ -n "$DBUS_SESSION_BUS_ADDRESS" ] && export DBUS_SESSION_BUS_ADDRESS
+    # the compositor socket is simply wayland-N inside XDG_RUNTIME_DIR
+    for s in "$XDG_RUNTIME_DIR"/wayland-*; do
+        case "$s" in *.lock) continue ;; esac
+        if [ -S "$s" ]; then WAYLAND_DISPLAY="${s##*/}"; break; fi
+    done
+    [ -n "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY
+fi
+[ -n "$DBUS_SESSION_BUS_ADDRESS" ] || export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+
+# --- debounce (failure-safe: any error lets the press through) ---
+last=/tmp/quake-terminal.last
+now=$(date +%s%N 2>/dev/null)
+if [ -n "$now" ] && [ -r "$last" ]; then
+    prev=$(head -1 "$last" 2>/dev/null | tr -cd '0-9')
+    if [ -n "$prev" ]; then
+        delta=$(( now - prev )) 2>/dev/null
+        [ -n "$delta" ] && [ "$delta" -ge 0 ] && [ "$delta" -lt 350000000 ] 2>/dev/null && exit 0
     fi
 fi
+[ -n "$now" ] && echo "$now" > "$last" 2>/dev/null
 
-# debounce: ignore invocations within 400ms of the previous one
-last="/tmp/quake-terminal.last"
-now_ns=$(date +%s%N 2>/dev/null)
-if [ -n "$now_ns" ] && [ -f "$last" ]; then
-    prev=$(cat "$last" 2>/dev/null)
-    if [ -n "$prev" ] && [ $((now_ns - prev)) -lt 400000000 ]; then
-        exit 0
-    fi
-fi
-[ -n "$now_ns" ] && echo "$now_ns" > "$last"
+{
+  echo "== $(date +%H:%M:%S) HOME='$HOME' WAYLAND='$WAYLAND_DISPLAY' XDG='$XDG_RUNTIME_DIR'"
+} >> /tmp/quake-terminal.wrapper.log 2>/dev/null
 
-export KITTY_PATH_TO_KITTY_EXE="$QUAKE_DIR/kitty/linux-package/bin/kitty"
+export KITTY_PATH_TO_KITTY_EXE="$Q/kitty/linux-package/bin/kitty"
 unset KITTY_PID
 
-exec "$KITTEN" quick-access-terminal \
-    --config "$QUAKE_DIR/quick-access-terminal.conf" \
+# --- 1) fast path: toggle the running instance over its RC socket ---
+if timeout 2 "$K" @ --to unix:@quake-kitty resize-os-window --action=toggle-visibility >/dev/null 2>&1; then
+    echo "   -> toggled via RC socket" >> /tmp/quake-terminal.wrapper.log 2>/dev/null
+    exit 0
+fi
+
+# --- 2) self-heal: kill stale/wedged quake instances ---
+for p in $(pgrep -x kitty 2>/dev/null); do
+    if tr '\0' '\n' < "/proc/$p/cmdline" 2>/dev/null | grep -q -- '--instance-group=quick-access'; then
+        kill "$p" 2>/dev/null
+        echo "   -> killed stale instance $p" >> /tmp/quake-terminal.wrapper.log 2>/dev/null
+    fi
+done
+sleep 0.3
+
+# --- 3) spawn a fresh instance (starts visible) ---
+echo "   -> spawning fresh instance" >> /tmp/quake-terminal.wrapper.log 2>/dev/null
+exec "$K" quick-access-terminal \
+    --config "$Q/quick-access-terminal.conf" \
     --detach \
-    --detached-log /tmp/quake-terminal.log "$@"
+    --detached-log /tmp/quake-terminal.log
