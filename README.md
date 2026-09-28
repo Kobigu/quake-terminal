@@ -181,6 +181,25 @@ rm -rf ~/quake-terminal
 cp ~/.config/cosmic/com.system76.CosmicSettings.Shortcuts/v1/custom{.pre-quake-fork.bak,}
 ```
 
+## Reliability
+
+The F12 path is designed to recover from any failure within one press:
+
+- Toggling goes **directly through the instance's remote-control socket**
+  (`resize-os-window --action=toggle-visibility`) — no process spawn per press.
+- If the socket is dead (crash, wedge), the wrapper **self-heals**: it kills
+  stale quake kitty instances and spawns a fresh one, visible.
+- The wrapper discovers `WAYLAND_DISPLAY` from the `wayland-*` socket in
+  `XDG_RUNTIME_DIR` (works from keyd's bare systemd environment) and forces
+  `linux_display_server=wayland`, so the spawn can never fall into the X11
+  backend.
+- keyd runs with `Restart=always` (systemd drop-in) and the wrapper debounces
+  double-fires (350 ms) failure-safely.
+
+If F12 ever misbehaves, check `/tmp/quake-terminal.wrapper.log` (one line per
+press, with what path it took) and `/tmp/quake-terminal.log` (the instance's
+debug log).
+
 ## Notes / gotchas
 
 - The slide direction follows the docked edge (`edge top` → slides down).
