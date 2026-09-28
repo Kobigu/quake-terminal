@@ -20,7 +20,7 @@ submodule (repo `quake-kitty`, branch `quake`, based on upstream `v0.49.1`).
 To deploy on a new COSMIC machine:
 
 ```bash
-git clone --recursive <this-repo-url> ~/quake-terminal
+git clone --recursive https://github.com/Kobigu/quake-terminal ~/quake-terminal
 cd ~/quake-terminal
 
 # build the fork (needs the build deps in the README section below)
